@@ -123,8 +123,8 @@ void SpMV::MulBaseline(){
 void SpMV::MulTiling(){
     for(uint32_t b=0;b<num_block;++b){
         for(uint32_t i=0;i<num_vertex;++i){
-            for(int j=tiled_rowptr[b][i]; j< tiled_rowptr[b][i+1]; ++j){
-                uint32_t col=colidx[j];
+            for(uint32_t j=tiled_rowptr[b][i]; j< tiled_rowptr[b][i+1]; ++j){
+                uint32_t col = colidx[j];
                 uint32_t val = data[j];
                 res[i] += val * dense_vec[col];
             }  
@@ -133,7 +133,34 @@ void SpMV::MulTiling(){
 }
 
 void SpMV::MulUnroll(){
-    
+    constexpr uint32_t unroll_size = 4; 
+
+    for(uint32_t b=0;b<num_block;++b){
+        for(uint32_t i=0;i<num_vertex;++i){
+            uint32_t start=tiled_rowptr[b][i];
+            uint32_t end=tiled_rowptr[b][i+1];
+            uint32_t cur = start;
+            while(cur + unroll_size <= end){
+                uint32_t idx0 = colidx[cur];
+                uint32_t idx1 = colidx[cur+1];
+                uint32_t idx2 = colidx[cur+2];
+                uint32_t idx3 = colidx[cur+3];
+
+                uint32_t val0 = data[cur];
+                uint32_t val1 = data[cur+1];
+                uint32_t val2 = data[cur+2];
+                uint32_t val3 = data[cur+3];
+
+                res[i] += val0 * dense_vec[idx0] + val1 * dense_vec[idx1] + val2 * dense_vec[idx2] + val3 * dense_vec[idx3];
+                cur += unroll_size;
+            }
+            for(; cur<end; ++cur){
+                uint32_t idx = colidx[cur];
+                uint32_t val = data[cur];
+                res[i] += val * dense_vec[idx];
+            }  
+        }
+    }
 }
 
 
@@ -163,7 +190,11 @@ int main(int argc, char* argv[]){
     gettimeofday(&tile, NULL);
     cout<< "tiling compute:" << elapse_time(start, tile) / 1 <<endl;
 
-    
+    gettimeofday(&start, NULL);
+    spmv.MulUnroll();
+    gettimeofday(&unroll, NULL);
+    cout<< "unroll compute:" << elapse_time(start, unroll) / 1 <<endl;
 
+    
     return 0;
 }
