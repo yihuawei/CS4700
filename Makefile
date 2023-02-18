@@ -1,2 +1,2 @@
 all:
-	g++ SpMV.cpp -o run.exe
+	g++ SpMV.cpp -o run.exe -O0
